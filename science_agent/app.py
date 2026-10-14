@@ -1,6 +1,13 @@
 import os
 import streamlit as st
-from agents import Agent, Runner, SQLiteSession
+from openai import AsyncOpenAI
+from agents import (
+    Agent,
+    Runner,
+    SQLiteSession,
+    OpenAIChatCompletionsModel,
+    set_tracing_disabled,
+)
 
 # 1. Streamlit 페이지 설정
 st.set_page_config(
@@ -9,13 +16,29 @@ st.set_page_config(
     layout="centered",
 )
 
-# 2. OpenAI API Key 설정
-os.environ["OPENAI_API_KEY"]
-# Agent, Runner를 import했으므로 생략해도 됨
+# 2. Gemini API Key 설정 (Google AI Studio 키)
+# Codespaces Secret GEMINI_API_KEY 사용 (없으면 OPENAI_API_KEY 값을 사용)
+api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+if not api_key:
+    st.error("GEMINI_API_KEY가 설정되지 않았습니다. Codespaces Secret을 확인하세요.")
+    st.stop()
+
+# Gemini의 OpenAI 호환 API로 연결
+gemini_client = AsyncOpenAI(
+    api_key=api_key,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+)
+gemini_model = OpenAIChatCompletionsModel(
+    model="gemini-flash-latest",
+    openai_client=gemini_client,
+)
+# 트레이싱은 OpenAI 키가 필요하므로 끔
+set_tracing_disabled(True)
 
 # 3. Single Education Agent 정의
 science_agent = Agent(
     name="Science Inquiry Coach",
+    model=gemini_model,
     instructions="""
 [ROLE] 너는 중학생의 과학 자유탐구를 지원하는 Science Inquiry Coach이다.
 [GOAL] 학생이 자신의 관심사를 과학 개념과 연결하여 탐구 가능한 질문을
